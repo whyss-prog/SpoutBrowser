@@ -29,6 +29,7 @@ Two versions are provided:
 
 Purchasing the full version is simply a way to support ongoing development.  
 Of course, you can always build SpoutBrowser yourself - see the instructions below.
+You can also download CI-built binaries from the **Artifacts** section of the latest successful **Build Windows x64 binary** GitHub Actions run.
 
 
 # Build

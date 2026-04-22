@@ -1,0 +1,68 @@
+name: Build Windows x64 binary
+
+on:
+  push:
+    branches: ["spout"]
+  pull_request:
+    branches: ["spout"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows-x64:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Configure CMake solution
+        shell: cmd
+        run: _SpoutBrowser_generate_solution.bat
+
+      - name: Locate build directory
+        id: paths
+        shell: pwsh
+        run: |
+          $buildDir = Get-ChildItem -Path "_cef_binary" -Directory -Filter "cef_binary_*_windows64" |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1 |
+            ForEach-Object { Join-Path $_.FullName "build" }
+
+          if (-not $buildDir) {
+            throw "Could not locate generated CEF build directory."
+          }
+
+          $outputDir = Join-Path $buildDir "tests\cefclient\Release"
+          "build_dir=$buildDir" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "output_dir=$outputDir" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Build Release binary
+        shell: pwsh
+        run: |
+          cmake --build "${{ steps.paths.outputs.build_dir }}" --config Release --target cefclient --parallel
+
+      - name: Verify build output exists
+        shell: pwsh
+        run: |
+          $outputDir = "${{ steps.paths.outputs.output_dir }}"
+          if (-not (Test-Path $outputDir)) {
+            throw "Build output directory not found: $outputDir"
+          }
+
+          if (-not (Test-Path (Join-Path $outputDir "SpoutBrowser.exe"))) {
+            throw "SpoutBrowser.exe not found in: $outputDir"
+          }
+
+      - name: Upload Windows x64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpoutBrowser-windows-x64
+          path: ${{ steps.paths.outputs.output_dir }}
+          if-no-files-found: error
